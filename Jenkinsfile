@@ -11,8 +11,11 @@ pipeline {
         stage('Clean Environment') {
             steps {
                 script {
-                    // Tắt các container cũ nếu đang chạy để nhả file (tránh lỗi Access denied)
+                    // Tắt container cũ
                     bat 'docker compose down || ver > nul'
+                    // Dùng git clean để xóa triệt để file build cũ (bin/obj) ngay trên Windows
+                    // -f: Force, -d: Directory, -x: Ignored files (bao gồm bin/obj)
+                    bat 'git clean -fdx'
                 }
             }
         }
@@ -20,8 +23,8 @@ pipeline {
         stage('Build & Test') {
             steps {
                 script {
-                    // Xóa file rác và Build lại
-                    bat 'docker run --rm -v "%WORKSPACE%":/app -w /app mcr.microsoft.com/dotnet/sdk:9.0 /bin/sh -c "rm -rf */bin */obj && dotnet restore && dotnet build --no-restore && dotnet test --no-build --verbosity normal"'
+                    // Môi trường đã sạch, chỉ cần restore và build
+                    bat 'docker run --rm -v "%WORKSPACE%":/app -w /app mcr.microsoft.com/dotnet/sdk:9.0 /bin/sh -c "dotnet restore && dotnet build --no-restore && dotnet test --no-build --verbosity normal"'
                 }
             }
         }

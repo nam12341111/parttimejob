@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignalR Chat Test Client</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        input, button, textarea {
+            margin: 5px 0;
+            padding: 10px;
+            font-size: 14px;
+        }
+        input, textarea {
+            width: calc(100% - 22px);
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 10px 20px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .disconnect-btn {
+            background-color: #f44336;
+        }
+        .disconnect-btn:hover {
+            background-color: #da190b;
+        }
+        #messages {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .message {
+            margin: 5px 0;
+            padding: 8px;
+            border-radius: 4px;
+            background-color: white;
+        }
+        .message.sent {
+            background-color: #e3f2fd;
+            text-align: right;
+        }
+        .message.received {
+            background-color: #fff3e0;
+        }
+        .message.system {
+            background-color: #f1f8e9;
+            font-style: italic;
+            color: #666;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .typing-indicator {
+            font-style: italic;
+            color: #666;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 SignalR Chat Test Client</h1>
+
+    <!-- Login Section -->
+    <div class="container">
+        <h2>1. Login</h2>
+        <input type="email" id="email" placeholder="Email" value="employer@example.com">
+        <input type="password" id="password" placeholder="Password" value="YourPassword">
+        <button onclick="login()">Login</button>
+        <div id="tokenDisplay" style="margin-top: 10px; font-size: 12px; word-break: break-all;"></div>
+    </div>
+
+    <!-- Connection Section -->
+    <div class="container">
+        <h2>2. Connect to SignalR</h2>
+        <div id="connectionStatus" class="status disconnected">Disconnected</div>
+        <button id="connectBtn" onclick="connectSignalR()" disabled>Connect</button>
+        <button id="disconnectBtn" onclick="disconnectSignalR()" class="disconnect-btn" disabled>Disconnect</button>
+    </div>
+
+    <!-- Chat Section -->
+    <div class="container">
+        <h2>3. Send Message</h2>
+        <input type="number" id="recipientId" placeholder="Recipient User ID" value="2">
+        <input type="number" id="conversationId" placeholder="Conversation ID (optional)">
+        <textarea id="messageContent" placeholder="Type your message here..." rows="3"></textarea>
+        <button id="sendBtn" onclick="sendMessage()" disabled>Send Message</button>
+        <button onclick="sendTyping(true)">Start Typing</button>
+        <button onclick="sendTyping(false)">Stop Typing</button>
+        <div id="typingIndicator" class="typing-indicator"></div>
+    </div>
+
+    <!-- Messages Section -->
+    <div class="container">
+        <h2>4. Messages</h2>
+        <div id="messages"></div>
+        <button onclick="clearMessages()">Clear Messages</button>
+    </div>
+
+    <!-- SignalR Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@latest/dist/browser/signalr.min.js"></script>
+
+    <script>
+        let connection = null;
+        let accessToken = null;
+        let currentUserId = null;
+
+        // 1. Login Function
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('http://localhost:5000/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.data.accessToken) {
+                    accessToken = result.data.accessToken;
+                    document.getElementById('tokenDisplay').innerHTML =
+                        `<strong>✅ Token:</strong> ${accessToken.substring(0, 50)}...`;
+                    document.getElementById('connectBtn').disabled = false;
+                    addMessage('Login successful!', 'system');
+
+                    // Decode JWT to get userId (simple decode, don't use in production)
+                    const payload = JSON.parse(atob(accessToken.split('.')[1]));
+                    currentUserId = parseInt(payload.nameid || payload.sub);
+                    addMessage(`Your User ID: ${currentUserId}`, 'system');
+                } else {
+                    addMessage(`Login failed: ${result.message}`, 'system');
+                }
+            } catch (error) {
+                addMessage(`Login error: ${error.message}`, 'system');
+            }
+        }
+
+        // 2. Connect to SignalR
+        async function connectSignalR() {
+            if (!accessToken) {
+                alert('Please login first!');
+                return;
+            }
+
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl('http://localhost:5000/hubs/chat', {
+                    accessTokenFactory: () => accessToken
+                })
+                .withAutomaticReconnect()
+                .configureLogging(signalR.LogLevel.Information)
+                .build();
+
+            // Event handlers
+            connection.on('ReceiveMessage', (message) => {
+                console.log('Received message:', message);
+                const isSent = message.senderId === currentUserId;
+                addMessage(
+                    `<strong>${message.senderName}:</strong> ${message.content}<br><small>${new Date(message.createdAt).toLocaleTimeString()}</small>`,
+                    isSent ? 'sent' : 'received'
+                );
+
+                // Auto-populate conversation ID
+                if (!document.getElementById('conversationId').value) {
+                    document.getElementById('conversationId').value = message.conversationId;
+                }
+            });
+
+            connection.on('MessagesMarkedAsRead', (conversationId) => {
+                addMessage(`Messages marked as read in conversation ${conversationId}`, 'system');
+            });
+
+            connection.on('UserTyping', (userId, isTyping) => {
+                const indicator = document.getElementById('typingIndicator');
+                if (isTyping && userId !== currentUserId) {
+                    indicator.textContent = `User ${userId} is typing...`;
+                } else {
+                    indicator.textContent = '';
+                }
+            });
+
+            connection.on('Error', (message) => {
+                addMessage(`Error: ${message}`, 'system');
+            });
+
+            connection.onreconnecting(() => {
+                updateConnectionStatus('Reconnecting...', 'disconnected');
+            });
+
+            connection.onreconnected(() => {
+                updateConnectionStatus('Reconnected', 'connected');
+            });
+
+            connection.onclose(() => {
+                updateConnectionStatus('Disconnected', 'disconnected');
+                document.getElementById('sendBtn').disabled = true;
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+            });
+
+            try {
+                await connection.start();
+                updateConnectionStatus('Connected', 'connected');
+                addMessage('Connected to SignalR hub!', 'system');
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+            } catch (error) {
+                addMessage(`Connection error: ${error.message}`, 'system');
+                console.error(error);
+            }
+        }
+
+        // 3. Disconnect from SignalR
+        async function disconnectSignalR() {
+            if (connection) {
+                await connection.stop();
+                addMessage('Disconnected from SignalR hub', 'system');
+            }
+        }
+
+        // 4. Send Message
+        async function sendMessage() {
+            const content = document.getElementById('messageContent').value;
+            const conversationId = document.getElementById('conversationId').value;
+            const recipientId = document.getElementById('recipientId').value;
+
+            if (!content.trim()) {
+                alert('Please enter a message');
+                return;
+            }
+
+            const dto = {
+                content: content,
+                conversationId: conversationId ? parseInt(conversationId) : null,
+                recipientId: recipientId ? parseInt(recipientId) : null
+            };
+
+            try {
+                await connection.invoke('SendMessage', dto);
+                document.getElementById('messageContent').value = '';
+                addMessage('Message sent (waiting for confirmation)...', 'system');
+            } catch (error) {
+                addMessage(`Send error: ${error.message}`, 'system');
+                console.error(error);
+            }
+        }
+
+        // 5. Send Typing Status
+        async function sendTyping(isTyping) {
+            const conversationId = document.getElementById('conversationId').value;
+
+            if (!conversationId) {
+                alert('Please enter a conversation ID');
+                return;
+            }
+
+            try {
+                await connection.invoke('UpdateTyping', parseInt(conversationId), isTyping);
+            } catch (error) {
+                console.error('Typing error:', error);
+            }
+        }
+
+        // Helper Functions
+        function addMessage(content, type = 'received') {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.innerHTML = content;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+        }
+
+        function updateConnectionStatus(text, status) {
+            const statusDiv = document.getElementById('connectionStatus');
+            statusDiv.textContent = text;
+            statusDiv.className = `status ${status}`;
+        }
+
+        // Keyboard shortcut
+        document.getElementById('messageContent').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>

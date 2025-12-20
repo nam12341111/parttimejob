@@ -7,12 +7,20 @@ pipeline {
                 checkout scm
             }
         }
+
+        stage('Clean Environment') {
+            steps {
+                script {
+                    // Tắt các container cũ nếu đang chạy để nhả file (tránh lỗi Access denied)
+                    bat 'docker compose down || ver > nul'
+                }
+            }
+        }
         
         stage('Build & Test') {
             steps {
                 script {
-                    // Sử dụng rm -rf để xóa thư mục bin/obj thay vì dotnet clean (tránh lỗi thiếu package)
-                    // Sau đó mới restore và build
+                    // Xóa file rác và Build lại
                     bat 'docker run --rm -v "%WORKSPACE%":/app -w /app mcr.microsoft.com/dotnet/sdk:9.0 /bin/sh -c "rm -rf */bin */obj && dotnet restore && dotnet build --no-restore && dotnet test --no-build --verbosity normal"'
                 }
             }

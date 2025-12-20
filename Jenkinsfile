@@ -1,42 +1,36 @@
 pipeline {
-    agent none
+    agent any
     
     stages {
         stage('Checkout') {
-            agent any
             steps {
                 checkout scm
             }
         }
         
         stage('Build & Test') {
-            agent {
-                docker { 
-                    image 'mcr.microsoft.com/dotnet/sdk:9.0' 
-                    args '-u root:root'
-                }
-            }
             steps {
-                sh 'dotnet restore'
-                sh 'dotnet build --no-restore'
-                sh 'dotnet test --no-build --verbosity normal'
+                script {
+                    // Dùng lệnh bat để gọi docker run, tự map thư mục hiện tại (%) vào /app
+                    bat 'docker run --rm -v "%WORKSPACE%":/app -w /app mcr.microsoft.com/dotnet/sdk:9.0 dotnet restore'
+                    bat 'docker run --rm -v "%WORKSPACE%":/app -w /app mcr.microsoft.com/dotnet/sdk:9.0 dotnet build --no-restore'
+                    bat 'docker run --rm -v "%WORKSPACE%":/app -w /app mcr.microsoft.com/dotnet/sdk:9.0 dotnet test --no-build --verbosity normal'
+                }
             }
         }
         
         stage('Build Docker Image') {
-            agent any 
             steps {
                 script {
-                    sh 'docker compose build api'
+                    bat 'docker compose build api'
                 }
             }
         }
 
         stage('Deploy') {
-            agent any
             steps {
                 script {
-                    sh 'docker compose up -d api'
+                    bat 'docker compose up -d api'
                 }
             }
         }

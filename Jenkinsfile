@@ -11,11 +11,8 @@ pipeline {
         stage('Clean Environment') {
             steps {
                 script {
-                    // Tắt container cũ
+                    // Tắt container cũ để nhả port/resource (nếu có)
                     bat 'docker compose down || ver > nul'
-                    // Dùng git clean để xóa triệt để file build cũ (bin/obj) ngay trên Windows
-                    // -f: Force, -d: Directory, -x: Ignored files (bao gồm bin/obj)
-                    bat 'git clean -fdx'
                 }
             }
         }
@@ -23,8 +20,11 @@ pipeline {
         stage('Build & Test') {
             steps {
                 script {
-                    // Môi trường đã sạch, chỉ cần restore và build
-                    bat 'docker run --rm -v "%WORKSPACE%":/app -w /app mcr.microsoft.com/dotnet/sdk:9.0 /bin/sh -c "dotnet restore && dotnet build --no-restore && dotnet test --no-build --verbosity normal"'
+                    // QUAN TRỌNG:
+                    // Thay vì mount volume (-v) và build trực tiếp (gây lỗi Access Denied trên Windows),
+                    // chúng ta sẽ COPY source code vào trong container (/app) và build tại đó.
+                    // Cách này tách biệt hoàn toàn với file system của Windows.
+                    bat 'docker run --rm -v "%WORKSPACE%":/source mcr.microsoft.com/dotnet/sdk:9.0 /bin/sh -c "mkdir -p /app && cp -a /source/. /app/ && cd /app && dotnet restore && dotnet build --no-restore && dotnet test --no-build --verbosity normal"'
                 }
             }
         }

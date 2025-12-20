@@ -11,9 +11,8 @@ pipeline {
         stage('Build & Test') {
             steps {
                 script {
-                    // Chạy gộp các lệnh dotnet trong 1 container duy nhất để giữ lại các package đã restore (tránh lỗi NETSDK1064)
-                    // Lưu ý: Dùng /bin/sh -c để chạy chuỗi lệnh trong Linux container
-                    bat 'docker run --rm -v "%WORKSPACE%":/app -w /app mcr.microsoft.com/dotnet/sdk:9.0 /bin/sh -c "dotnet restore && dotnet build --no-restore && dotnet test --no-build --verbosity normal"'
+                    // Thêm dotnet clean để xóa các file build cũ tránh lỗi access denied
+                    bat 'docker run --rm -v "%WORKSPACE%":/app -w /app mcr.microsoft.com/dotnet/sdk:9.0 /bin/sh -c "dotnet clean && dotnet restore && dotnet build --no-restore && dotnet test --no-build --verbosity normal"'
                 }
             }
         }

@@ -60,7 +60,7 @@ public class LogsController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to retrieve activity logs");
-            return StatusCode(500, Result<object>.FailureResult("Failed to retrieve activity logs"));
+            return StatusCode(500, Result<object>.FailureResult("Failed to retrieve activity log"));
         }
     }
 

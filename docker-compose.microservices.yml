@@ -1,0 +1,204 @@
+version: "3.8"
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      SA_PASSWORD: "YourStrong!Password123"
+      ACCEPT_EULA: "Y"
+    ports:
+      - "1433:1433"
+    volumes:
+      - ./hello_2.bak:/var/opt/mssql/backup/hello_2.bak:ro
+      - ./mssql/restore-db.sql:/var/opt/mssql/scripts/restore-db.sql:ro
+      - ./mssql/entrypoint.sh:/var/opt/mssql/entrypoint.sh:ro
+    command: /bin/bash -c "/var/opt/mssql/entrypoint.sh & /opt/mssql/bin/sqlservr"
+    healthcheck:
+      test:
+        [
+          CMD,
+          /opt/mssql-tools18/bin/sqlcmd,
+          -S,
+          localhost,
+          -U,
+          sa,
+          -P,
+          "YourStrong!Password123",
+          -C,
+          -Q,
+          "SELECT 1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  admin:
+    build:
+      context: .
+      dockerfile: PTJ.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Default=Server=sqlserver;Database=PartTimeJobs;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True;MultipleActiveResultSets=true
+      - MODULE=admin
+    ports:
+      - "5001:5000"
+    depends_on:
+      - sqlserver
+
+  aichat:
+    build:
+      context: .
+      dockerfile: PTJ.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Default=Server=sqlserver;Database=PartTimeJobs;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True;MultipleActiveResultSets=true
+      - MODULE=aichat
+    ports:
+      - "5002:5000"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  application:
+    build:
+      context: .
+      dockerfile: PTJ.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Default=Server=sqlserver;Database=PartTimeJobs;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True;MultipleActiveResultSets=true
+      - MODULE=application
+    ports:
+      - "5003:5000"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  auth:
+    build:
+      context: .
+      dockerfile: PTJ.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Default=Server=sqlserver;Database=PartTimeJobs;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True;MultipleActiveResultSets=true
+      - MODULE=auth
+    ports:
+      - "5004:5000"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  chat:
+    build:
+      context: .
+      dockerfile: PTJ.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Default=Server=sqlserver;Database=PartTimeJobs;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True;MultipleActiveResultSets=true
+      - MODULE=chat
+    ports:
+      - "5005:5000"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  companies:
+    build:
+      context: .
+      dockerfile: PTJ.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Default=Server=sqlserver;Database=PartTimeJobs;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True;MultipleActiveResultSets=true
+      - MODULE=companies
+    ports:
+      - "5006:5000"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  companyrequests:
+    build:
+      context: .
+      dockerfile: PTJ.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Default=Server=sqlserver;Database=PartTimeJobs;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True;MultipleActiveResultSets=true
+      - MODULE=companyrequests
+    ports:
+      - "5007:5000"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  files:
+    build:
+      context: .
+      dockerfile: PTJ.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Default=Server=sqlserver;Database=PartTimeJobs;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True;MultipleActiveResultSets=true
+      - MODULE=files
+    ports:
+      - "5008:5000"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  jobpost:
+    build:
+      context: .
+      dockerfile: PTJ.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Default=Server=sqlserver;Database=PartTimeJobs;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True;MultipleActiveResultSets=true
+      - MODULE=jobpost
+    ports:
+      - "5009:5000"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  logs:
+    build:
+      context: .
+      dockerfile: PTJ.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Default=Server=sqlserver;Database=PartTimeJobs;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True;MultipleActiveResultSets=true
+      - MODULE=logs
+    ports:
+      - "5010:5000"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  profiles:
+    build:
+      context: .
+      dockerfile: PTJ.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Default=Server=sqlserver;Database=PartTimeJobs;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True;MultipleActiveResultSets=true
+      - MODULE=profiles
+    ports:
+      - "5011:5000"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:stable-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - admin
+      - aichat
+      - application
+      - auth
+      - chat
+      - companies
+      - companyrequests
+      - files
+      - jobpost
+      - logs
+      - profiles

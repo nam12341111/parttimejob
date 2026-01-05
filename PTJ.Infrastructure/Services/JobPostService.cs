@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using PTJ.Application.Common;
 using PTJ.Application.DTOs.JobPost;
 using PTJ.Application.Services;
@@ -12,36 +14,33 @@ public class JobPostService : IJobPostService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ISearchService _searchService;
+    private readonly IMapper _mapper;
 
-    public JobPostService(IUnitOfWork unitOfWork, ISearchService searchService)
+    public JobPostService(IUnitOfWork unitOfWork, ISearchService searchService, IMapper mapper)
     {
         _unitOfWork = unitOfWork;
         _searchService = searchService;
+        _mapper = mapper;
     }
 
 
     public async Task<Result<JobPostDto>> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        var jobPost = await _unitOfWork.JobPosts.GetByIdAsync(id, cancellationToken);
+        var jobPostDto = await _unitOfWork.JobPosts.GetQueryable()
+            .Where(jp => jp.Id == id)
+            .ProjectTo<JobPostDto>(_mapper.ConfigurationProvider)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (jobPost == null)
+        if (jobPostDto == null)
         {
             return Result<JobPostDto>.FailureResult("Job post not found");
         }
 
-        // Load related data
-        var company = await _unitOfWork.Companies.GetByIdAsync(jobPost.CompanyId, cancellationToken);
-        var shifts = await _unitOfWork.JobShifts.FindAsync(s => s.JobPostId == id, cancellationToken);
-        var skills = await _unitOfWork.JobPostSkills.FindAsync(s => s.JobPostId == id, cancellationToken);
-
-        var dto = MapToDto(jobPost, company, shifts.ToList(), skills.ToList());
-
-        return Result<JobPostDto>.SuccessResult(dto);
+        return Result<JobPostDto>.SuccessResult(jobPostDto);
     }
 
     public async Task<Result<PaginatedList<JobPostDto>>> GetAllAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
-
         var query = _unitOfWork.JobPosts.GetQueryable()
             .Where(jp => jp.Status == JobPostStatus.Active);
 
@@ -51,19 +50,10 @@ public class JobPostService : IJobPostService
             .OrderByDescending(jp => jp.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
+            .ProjectTo<JobPostDto>(_mapper.ConfigurationProvider)
             .ToListAsync(cancellationToken);
 
-        var dtos = new List<JobPostDto>();
-        foreach (var jobPost in items)
-        {
-            var company = await _unitOfWork.Companies.GetByIdAsync(jobPost.CompanyId, cancellationToken);
-            var shifts = await _unitOfWork.JobShifts.FindAsync(s => s.JobPostId == jobPost.Id, cancellationToken);
-            var skills = await _unitOfWork.JobPostSkills.FindAsync(s => s.JobPostId == jobPost.Id, cancellationToken);
-
-            dtos.Add(MapToDto(jobPost, company, shifts.ToList(), skills.ToList()));
-        }
-
-        var result = new PaginatedList<JobPostDto>(dtos, totalCount, pageNumber, pageSize);
+        var result = new PaginatedList<JobPostDto>(items, totalCount, pageNumber, pageSize);
 
         return Result<PaginatedList<JobPostDto>>.SuccessResult(result);
     }
@@ -75,27 +65,19 @@ public class JobPostService : IJobPostService
 
     public async Task<Result<PaginatedList<JobPostDto>>> GetByCompanyIdAsync(int companyId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
-        var jobPosts = await _unitOfWork.JobPosts.FindAsync(jp => jp.CompanyId == companyId, cancellationToken);
-        var totalCount = jobPosts.Count();
+        var query = _unitOfWork.JobPosts.GetQueryable()
+            .Where(jp => jp.CompanyId == companyId);
 
-        var items = jobPosts
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
             .OrderByDescending(jp => jp.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .ToList();
+            .ProjectTo<JobPostDto>(_mapper.ConfigurationProvider)
+            .ToListAsync(cancellationToken);
 
-        var company = await _unitOfWork.Companies.GetByIdAsync(companyId, cancellationToken);
-
-        var dtos = new List<JobPostDto>();
-        foreach (var jobPost in items)
-        {
-            var shifts = await _unitOfWork.JobShifts.FindAsync(s => s.JobPostId == jobPost.Id, cancellationToken);
-            var skills = await _unitOfWork.JobPostSkills.FindAsync(s => s.JobPostId == jobPost.Id, cancellationToken);
-
-            dtos.Add(MapToDto(jobPost, company, shifts.ToList(), skills.ToList()));
-        }
-
-        var result = new PaginatedList<JobPostDto>(dtos, totalCount, pageNumber, pageSize);
+        var result = new PaginatedList<JobPostDto>(items, totalCount, pageNumber, pageSize);
 
         return Result<PaginatedList<JobPostDto>>.SuccessResult(result);
     }
@@ -167,13 +149,9 @@ public class JobPostService : IJobPostService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // Load data for response
-        var shifts = await _unitOfWork.JobShifts.FindAsync(s => s.JobPostId == jobPost.Id, cancellationToken);
-        var skills = await _unitOfWork.JobPostSkills.FindAsync(s => s.JobPostId == jobPost.Id, cancellationToken);
-
-        var responseDto = MapToDto(jobPost, company, shifts.ToList(), skills.ToList());
-
-        return Result<JobPostDto>.SuccessResult(responseDto, "Job post created successfully");
+        // Load data for response using the optimized GetById
+        var result = await GetByIdAsync(jobPost.Id, cancellationToken);
+        return Result<JobPostDto>.SuccessResult(result.Data!, "Job post created successfully");
     }
 
     public async Task<Result<JobPostDto>> UpdateAsync(int id, int userId, UpdateJobPostDto dto, CancellationToken cancellationToken = default)
@@ -214,14 +192,9 @@ public class JobPostService : IJobPostService
         _unitOfWork.JobPosts.Update(jobPost);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // Load data for response
-        var company = await _unitOfWork.Companies.GetByIdAsync(jobPost.CompanyId, cancellationToken);
-        var shifts = await _unitOfWork.JobShifts.FindAsync(s => s.JobPostId == id, cancellationToken);
-        var skills = await _unitOfWork.JobPostSkills.FindAsync(s => s.JobPostId == id, cancellationToken);
-
-        var responseDto = MapToDto(jobPost, company, shifts.ToList(), skills.ToList());
-
-        return Result<JobPostDto>.SuccessResult(responseDto, "Job post updated successfully");
+        // Load data for response using the optimized GetById
+        var result = await GetByIdAsync(jobPost.Id, cancellationToken);
+        return Result<JobPostDto>.SuccessResult(result.Data!, "Job post updated successfully");
     }
 
     public async Task<Result> DeleteAsync(int id, int userId, CancellationToken cancellationToken = default)
@@ -291,44 +264,5 @@ public class JobPostService : IJobPostService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.SuccessResult("View count incremented");
-    }
-
-    private JobPostDto MapToDto(JobPost jobPost, Company? company, List<JobShift> shifts, List<JobPostSkill> skills)
-    {
-        return new JobPostDto
-        {
-            Id = jobPost.Id,
-            EmployerId = jobPost.CreatedByUserId,
-            CompanyId = jobPost.CompanyId,
-            CompanyName = company?.Name ?? "Unknown",
-            CompanyLogoUrl = company?.LogoUrl,
-            Title = jobPost.Title,
-            Description = jobPost.Description,
-            Requirements = jobPost.Requirements,
-            Benefits = jobPost.Benefits,
-            SalaryMin = jobPost.SalaryMin,
-            SalaryMax = jobPost.SalaryMax,
-            SalaryPeriod = jobPost.SalaryPeriod,
-            Location = jobPost.Location,
-            WorkType = jobPost.WorkType,
-            Category = jobPost.Category,
-            NumberOfPositions = jobPost.NumberOfPositions,
-            ApplicationDeadline = jobPost.ApplicationDeadline,
-            Status = jobPost.Status,
-            ViewCount = jobPost.ViewCount,
-            ApplicationCount = jobPost.ApplicationCount,
-            IsFeatured = jobPost.IsFeatured,
-            IsUrgent = jobPost.IsUrgent,
-            CreatedAt = jobPost.CreatedAt,
-            Shifts = shifts.Select(s => new JobShiftDto
-            {
-                Id = s.Id,
-                DayOfWeek = s.DayOfWeek,
-                StartTime = s.StartTime,
-                EndTime = s.EndTime,
-                Notes = s.Notes
-            }).ToList(),
-            RequiredSkills = skills.Select(s => s.SkillName).ToList()
-        };
     }
 }

@@ -57,7 +57,8 @@ public class FilesController : ControllerBase
     public async Task<IActionResult> Delete([FromQuery] string fileUrl, CancellationToken cancellationToken)
     {
         var userId = GetUserId();
-        var result = await _fileStorageService.DeleteFileAsync(fileUrl, cancellationToken);
+        var userRoles = GetUserRoles();
+        var result = await _fileStorageService.DeleteFileAsync(fileUrl, userId, userRoles, cancellationToken);
 
         if (!result.Success)
         {
@@ -81,24 +82,24 @@ public class FilesController : ControllerBase
     }
 
     /// <summary>
-    /// Download a file
+    /// Download a file (requires authentication)
     /// </summary>
-    [AllowAnonymous]
     [HttpGet("download")]
     public async Task<IActionResult> Download([FromQuery] string fileUrl, CancellationToken cancellationToken)
     {
-        var result = await _fileStorageService.DownloadFileAsync(fileUrl, cancellationToken);
+        var userId = GetUserId();
+        var userRoles = GetUserRoles();
+        var result = await _fileStorageService.DownloadFileAsync(fileUrl, userId, userRoles, cancellationToken);
 
         if (!result.Success)
         {
-            return NotFound(result);
+            return BadRequest(result);
         }
 
-        var userId = GetUserId();
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
         var userAgent = Request.Headers["User-Agent"].ToString();
         await _activityLogService.LogActivityAsync(
-            userId != 0 ? userId : null,
+            userId,
             "GET",
             "/api/files/download",
             $"fileUrl={fileUrl}",
@@ -127,5 +128,10 @@ public class FilesController : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return int.TryParse(userIdClaim, out var userId) ? userId : 0;
+    }
+
+    private List<string> GetUserRoles()
+    {
+        return User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
     }
 }

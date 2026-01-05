@@ -279,6 +279,16 @@ public class ChatService : IChatService
         return Result<int>.SuccessResult(unreadMessages.Count());
     }
 
+    public async Task<bool> IsUserInConversationAsync(int conversationId, int userId, CancellationToken cancellationToken = default)
+    {
+        var conversation = await _unitOfWork.ChatConversations.GetByIdAsync(conversationId, cancellationToken);
+        
+        if (conversation == null)
+            return false;
+
+        return conversation.EmployerId == userId || conversation.StudentId == userId;
+    }
+
     private async Task<ChatConversationDto> MapToDto(ChatConversation conversation, int currentUserId, CancellationToken cancellationToken)
     {
         var employer = await _unitOfWork.Users.GetByIdAsync(conversation.EmployerId, cancellationToken);

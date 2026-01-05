@@ -12,4 +12,5 @@ public interface IChatService
     Task<Result> MarkMessagesAsReadAsync(int conversationId, int userId, CancellationToken cancellationToken = default);
     Task<Result> UpdateTypingStatusAsync(int conversationId, int userId, bool isTyping, CancellationToken cancellationToken = default);
     Task<Result<int>> GetUnreadCountAsync(int userId, CancellationToken cancellationToken = default);
+    Task<bool> IsUserInConversationAsync(int conversationId, int userId, CancellationToken cancellationToken = default);
 }

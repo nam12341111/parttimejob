@@ -1,5 +1,6 @@
 using System.Net;
 using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using PTJ.Application.Common;
 using PTJ.Application.Services;
@@ -14,6 +15,21 @@ public class GlobalExceptionMiddleware
     private readonly RequestDelegate _next;
     private readonly ILogger<GlobalExceptionMiddleware> _logger;
     private readonly IHostEnvironment _environment;
+    
+    private static readonly HashSet<string> SensitiveKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "access_token",
+        "accessToken",
+        "refresh_token",
+        "refreshToken",
+        "password",
+        "token",
+        "authorization",
+        "auth",
+        "secret",
+        "apikey",
+        "api_key"
+    };
 
     public GlobalExceptionMiddleware(
         RequestDelegate next,
@@ -65,6 +81,8 @@ public class GlobalExceptionMiddleware
                 _ => "Critical"
             };
 
+            var sanitizedQueryString = SanitizeQueryString(context.Request.QueryString.ToString());
+            
             await errorLogService.LogErrorAsync(
                 level: level,
                 message: exception.Message,
@@ -72,7 +90,7 @@ public class GlobalExceptionMiddleware
                 userId: userId,
                 requestPath: context.Request.Path,
                 httpMethod: context.Request.Method,
-                queryString: context.Request.QueryString.ToString(),
+                queryString: sanitizedQueryString,
                 ipAddress: ipAddress,
                 userAgent: userAgent,
                 source: exception.Source
@@ -161,6 +179,54 @@ public class GlobalExceptionMiddleware
         }
 
         return context.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+    }
+
+    /// <summary>
+    /// Sanitizes query string by masking sensitive parameter values
+    /// </summary>
+    private string SanitizeQueryString(string queryString)
+    {
+        if (string.IsNullOrEmpty(queryString))
+            return string.Empty;
+
+        if (queryString.StartsWith("?"))
+            queryString = queryString.Substring(1);
+
+        var sanitized = new StringBuilder();
+        var parameters = queryString.Split('&', StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var param in parameters)
+        {
+            var parts = param.Split('=', 2);
+            var key = parts[0];
+            var value = parts.Length > 1 ? parts[1] : string.Empty;
+
+            if (sanitized.Length > 0)
+                sanitized.Append('&');
+
+            sanitized.Append(key);
+            sanitized.Append('=');
+
+            if (SensitiveKeys.Contains(key))
+            {
+                sanitized.Append("***REDACTED***");
+            }
+            else
+            {
+                const int maxValueLength = 100;
+                if (value.Length > maxValueLength)
+                {
+                    sanitized.Append(value.Substring(0, maxValueLength));
+                    sanitized.Append("...");
+                }
+                else
+                {
+                    sanitized.Append(value);
+                }
+            }
+        }
+
+        return sanitized.ToString();
     }
 }
 

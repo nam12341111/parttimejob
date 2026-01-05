@@ -94,12 +94,25 @@ public class ChatHub : Hub
 
     public async Task JoinConversation(int conversationId)
     {
+        var userId = GetUserId();
+        
+        // Check if user is member of this conversation
+        var isMember = await _chatService.IsUserInConversationAsync(conversationId, userId, Context.ConnectionAborted);
+        
+        if (!isMember)
+        {
+            await Clients.Caller.SendAsync("Error", "Unauthorized: You are not a member of this conversation");
+            return;
+        }
+        
         await Groups.AddToGroupAsync(Context.ConnectionId, $"conversation-{conversationId}");
+        await Clients.Caller.SendAsync("JoinedConversation", conversationId);
     }
 
     public async Task LeaveConversation(int conversationId)
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"conversation-{conversationId}");
+        await Clients.Caller.SendAsync("LeftConversation", conversationId);
     }
 
     private int GetUserId()

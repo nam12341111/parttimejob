@@ -146,13 +146,45 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-// Configure CORS for SignalR
+// Configure CORS with environment-specific policies
 builder.Services.AddCors(options =>
 {
+    var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.SetIsOriginAllowed(_ => true) // Allow all origins in development (including file://)
-              .AllowAnyMethod()
+        if (builder.Environment.IsDevelopment())
+        {
+            // Development: Allow configured origins or localhost if empty
+            if (allowedOrigins.Length > 0)
+            {
+                policy.WithOrigins(allowedOrigins);
+            }
+            else
+            {
+                // Fallback to localhost patterns for development
+                policy.SetIsOriginAllowed(origin =>
+                    origin.StartsWith("http://localhost:", StringComparison.OrdinalIgnoreCase) ||
+                    origin.StartsWith("https://localhost:", StringComparison.OrdinalIgnoreCase) ||
+                    origin.StartsWith("http://127.0.0.1:", StringComparison.OrdinalIgnoreCase) ||
+                    origin.StartsWith("https://127.0.0.1:", StringComparison.OrdinalIgnoreCase));
+            }
+        }
+        else
+        {
+            // Production: Only allow whitelisted origins
+            if (allowedOrigins.Length > 0)
+            {
+                policy.WithOrigins(allowedOrigins);
+            }
+            else
+            {
+                // No origins allowed if not configured (fail-safe)
+                policy.WithOrigins("https://example.com");
+            }
+        }
+
+        policy.AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials(); // Required for SignalR
     });

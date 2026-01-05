@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using PTJ.Application.Common;
 using PTJ.Application.DTOs.Auth;
 using PTJ.Application.Services;
@@ -11,11 +12,13 @@ public class AuthService : IAuthService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IJwtService _jwtService;
+    private readonly JwtOptions _jwtOptions;
 
-    public AuthService(IUnitOfWork unitOfWork, IJwtService jwtService)
+    public AuthService(IUnitOfWork unitOfWork, IJwtService jwtService, IOptions<JwtOptions> jwtOptions)
     {
         _unitOfWork = unitOfWork;
         _jwtService = jwtService;
+        _jwtOptions = jwtOptions.Value;
     }
 
     public async Task<Result<RegisterResponseDto>> RegisterAsync(RegisterDto dto, CancellationToken cancellationToken = default)
@@ -116,16 +119,13 @@ public class AuthService : IAuthService
             cancellationToken);
 
         var roleIds = userRoles.Select(ur => ur.RoleId).ToList();
-        var roles = new List<string>();
 
-        foreach (var roleId in roleIds)
-        {
-            var role = await _unitOfWork.Roles.GetByIdAsync(roleId, cancellationToken);
-            if (role != null)
-            {
-                roles.Add(role.Name);
-            }
-        }
+        // Optimize: Fetch all roles in one query
+        var rolesEntities = await _unitOfWork.Roles.FindAsync(
+            r => roleIds.Contains(r.Id),
+            cancellationToken);
+
+        var roles = rolesEntities.Select(r => r.Name).ToList();
 
         // Generate tokens
         var accessToken = _jwtService.GenerateAccessToken(user, roles);
@@ -136,7 +136,7 @@ public class AuthService : IAuthService
         {
             UserId = user.Id,
             Token = refreshToken,
-            ExpiresAt = DateTime.UtcNow.AddDays(30),
+            ExpiresAt = DateTime.UtcNow.AddDays(_jwtOptions.RefreshTokenDays),
             CreatedByIp = ipAddress,
             CreatedAt = DateTime.UtcNow
         };
@@ -157,7 +157,7 @@ public class AuthService : IAuthService
             Roles = roles,
             AccessToken = accessToken,
             RefreshToken = refreshToken,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(60)
+            ExpiresAt = DateTime.UtcNow.AddMinutes(_jwtOptions.ExpiresMinutes)
         };
 
         return Result<AuthResponseDto>.SuccessResult(response, "Login successful");
@@ -187,16 +187,13 @@ public class AuthService : IAuthService
             cancellationToken);
 
         var roleIds = userRoles.Select(ur => ur.RoleId).ToList();
-        var roles = new List<string>();
 
-        foreach (var roleId in roleIds)
-        {
-            var role = await _unitOfWork.Roles.GetByIdAsync(roleId, cancellationToken);
-            if (role != null)
-            {
-                roles.Add(role.Name);
-            }
-        }
+        // Optimize: Fetch all roles in one query
+        var rolesEntities = await _unitOfWork.Roles.FindAsync(
+            r => roleIds.Contains(r.Id),
+            cancellationToken);
+
+        var roles = rolesEntities.Select(r => r.Name).ToList();
 
         // Generate new tokens
         var newAccessToken = _jwtService.GenerateAccessToken(user, roles);
@@ -214,7 +211,7 @@ public class AuthService : IAuthService
         {
             UserId = user.Id,
             Token = newRefreshToken,
-            ExpiresAt = DateTime.UtcNow.AddDays(30),
+            ExpiresAt = DateTime.UtcNow.AddDays(_jwtOptions.RefreshTokenDays),
             CreatedByIp = ipAddress,
             CreatedAt = DateTime.UtcNow
         };
@@ -230,7 +227,7 @@ public class AuthService : IAuthService
             Roles = roles,
             AccessToken = newAccessToken,
             RefreshToken = newRefreshToken,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(60)
+            ExpiresAt = DateTime.UtcNow.AddMinutes(_jwtOptions.ExpiresMinutes)
         };
 
         return Result<AuthResponseDto>.SuccessResult(response, "Token refreshed successfully");

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
 using PTJ.Application.Common;
 using PTJ.Application.Services;
+using PTJ.Domain.Common;
 using PTJ.Domain.Entities;
 using PTJ.Domain.Interfaces;
 
@@ -11,10 +13,19 @@ public class LocalFileStorageService : IFileStorageService
     private readonly IUnitOfWork _unitOfWork;
     private readonly string _uploadPath;
 
-    public LocalFileStorageService(IUnitOfWork unitOfWork)
+    private static readonly HashSet<string> AllowedFolders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "avatars",
+        "cvs",
+        "logos",
+        "certificates",
+        "general"
+    };
+
+    public LocalFileStorageService(IUnitOfWork unitOfWork, IHostEnvironment environment)
     {
         _unitOfWork = unitOfWork;
-        _uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
+        _uploadPath = Path.Combine(environment.ContentRootPath, "uploads");
 
         // Ensure upload directory exists
         if (!Directory.Exists(_uploadPath))
@@ -28,6 +39,12 @@ public class LocalFileStorageService : IFileStorageService
         if (file == null || file.Length == 0)
         {
             return Result<string>.FailureResult("No file provided");
+        }
+
+        // Validate folder whitelist
+        if (!AllowedFolders.Contains(folder))
+        {
+            return Result<string>.FailureResult($"Folder '{folder}' is not allowed. Allowed folders: {string.Join(", ", AllowedFolders)}");
         }
 
         // Validate file size (max 10MB)
@@ -48,19 +65,34 @@ public class LocalFileStorageService : IFileStorageService
 
         try
         {
-            // Create folder path
+            // Create folder path with path traversal protection
             var folderPath = Path.Combine(_uploadPath, folder);
-            if (!Directory.Exists(folderPath))
+            var fullFolderPath = Path.GetFullPath(folderPath);
+
+            // Verify the resolved path is still within upload directory
+            if (!fullFolderPath.StartsWith(_uploadPath, StringComparison.OrdinalIgnoreCase))
             {
-                Directory.CreateDirectory(folderPath);
+                return Result<string>.FailureResult("Invalid folder path detected");
+            }
+
+            if (!Directory.Exists(fullFolderPath))
+            {
+                Directory.CreateDirectory(fullFolderPath);
             }
 
             // Generate unique filename
             var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
-            var filePath = Path.Combine(folderPath, uniqueFileName);
+            var filePath = Path.Combine(fullFolderPath, uniqueFileName);
+            var fullFilePath = Path.GetFullPath(filePath);
+
+            // Final path traversal check
+            if (!fullFilePath.StartsWith(_uploadPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return Result<string>.FailureResult("Invalid file path detected");
+            }
 
             // Save file
-            using (var stream = new FileStream(filePath, FileMode.Create))
+            using (var stream = new FileStream(fullFilePath, FileMode.Create))
             {
                 await file.CopyToAsync(stream, cancellationToken);
             }
@@ -92,7 +124,7 @@ public class LocalFileStorageService : IFileStorageService
         }
     }
 
-    public async Task<Result> DeleteFileAsync(string fileUrl, CancellationToken cancellationToken = default)
+    public async Task<Result> DeleteFileAsync(string fileUrl, int userId, IEnumerable<string> userRoles, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -106,12 +138,30 @@ public class LocalFileStorageService : IFileStorageService
                 return Result.FailureResult("File not found in database");
             }
 
-            // Delete physical file
-            var filePath = Path.Combine(Directory.GetCurrentDirectory(), fileUrl.TrimStart('/'));
+            // Check ownership: only file owner or ADMIN can delete
+            var isAdmin = userRoles.Contains(RoleConstants.Admin);
+            var isOwner = fileEntity.UploadedBy == userId;
 
-            if (File.Exists(filePath))
+            if (!isAdmin && !isOwner)
             {
-                File.Delete(filePath);
+                return Result.FailureResult("Unauthorized: You can only delete your own files");
+            }
+
+            // Construct safe file path with traversal protection
+            var relativePath = fileUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+            var filePath = Path.Combine(_uploadPath, relativePath);
+            var fullFilePath = Path.GetFullPath(filePath);
+
+            // Verify the resolved path is within upload directory
+            if (!fullFilePath.StartsWith(_uploadPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return Result.FailureResult("Invalid file path detected");
+            }
+
+            // Delete physical file
+            if (File.Exists(fullFilePath))
+            {
+                File.Delete(fullFilePath);
             }
 
             // Delete from database
@@ -126,7 +176,7 @@ public class LocalFileStorageService : IFileStorageService
         }
     }
 
-    public async Task<Result<byte[]>> DownloadFileAsync(string fileUrl, CancellationToken cancellationToken = default)
+    public async Task<Result<byte[]>> DownloadFileAsync(string fileUrl, int userId, IEnumerable<string> userRoles, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -140,15 +190,32 @@ public class LocalFileStorageService : IFileStorageService
                 return Result<byte[]>.FailureResult("File not found");
             }
 
-            // Read file
-            var filePath = Path.Combine(Directory.GetCurrentDirectory(), fileUrl.TrimStart('/'));
+            // Check ownership: only file owner or ADMIN can download
+            var isAdmin = userRoles.Contains(RoleConstants.Admin);
+            var isOwner = fileEntity.UploadedBy == userId;
 
-            if (!File.Exists(filePath))
+            if (!isAdmin && !isOwner)
+            {
+                return Result<byte[]>.FailureResult("Unauthorized: You can only download your own files");
+            }
+
+            // Construct safe file path with traversal protection
+            var relativePath = fileUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+            var filePath = Path.Combine(_uploadPath, relativePath);
+            var fullFilePath = Path.GetFullPath(filePath);
+
+            // Verify the resolved path is within upload directory
+            if (!fullFilePath.StartsWith(_uploadPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return Result<byte[]>.FailureResult("Invalid file path detected");
+            }
+
+            if (!File.Exists(fullFilePath))
             {
                 return Result<byte[]>.FailureResult("Physical file not found");
             }
 
-            var fileBytes = await File.ReadAllBytesAsync(filePath, cancellationToken);
+            var fileBytes = await File.ReadAllBytesAsync(fullFilePath, cancellationToken);
 
             return Result<byte[]>.SuccessResult(fileBytes);
         }

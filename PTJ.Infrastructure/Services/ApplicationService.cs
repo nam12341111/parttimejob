@@ -1,3 +1,6 @@
+using Microsoft.EntityFrameworkCore;
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using PTJ.Application.Common;
 using PTJ.Application.DTOs.Application;
 using PTJ.Application.Services;
@@ -9,70 +12,63 @@ namespace PTJ.Infrastructure.Services;
 public class ApplicationService : IApplicationService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
 
-    public ApplicationService(IUnitOfWork unitOfWork)
+    public ApplicationService(IUnitOfWork unitOfWork, IMapper mapper)
     {
         _unitOfWork = unitOfWork;
+        _mapper = mapper;
     }
 
     public async Task<Result<ApplicationDto>> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        var application = await _unitOfWork.Applications.GetByIdAsync(id, cancellationToken);
+        var dto = await _unitOfWork.Applications.GetQueryable()
+            .Where(a => a.Id == id)
+            .ProjectTo<ApplicationDto>(_mapper.ConfigurationProvider)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (application == null)
+        if (dto == null)
         {
             return Result<ApplicationDto>.FailureResult("Application not found");
         }
-
-        var dto = await MapToDtoAsync(application, cancellationToken);
 
         return Result<ApplicationDto>.SuccessResult(dto);
     }
 
     public async Task<Result<PaginatedList<ApplicationDto>>> GetByJobPostIdAsync(int jobPostId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
-        var applications = await _unitOfWork.Applications.FindAsync(
-            a => a.JobPostId == jobPostId,
-            cancellationToken);
+        var query = _unitOfWork.Applications.GetQueryable()
+            .Where(a => a.JobPostId == jobPostId);
 
-        var totalCount = applications.Count();
-        var items = applications
+        var totalCount = await query.CountAsync(cancellationToken);
+        
+        var items = await query
             .OrderByDescending(a => a.AppliedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .ToList();
+            .ProjectTo<ApplicationDto>(_mapper.ConfigurationProvider)
+            .ToListAsync(cancellationToken);
 
-        var dtos = new List<ApplicationDto>();
-        foreach (var app in items)
-        {
-            dtos.Add(await MapToDtoAsync(app, cancellationToken));
-        }
-
-        var result = new PaginatedList<ApplicationDto>(dtos, totalCount, pageNumber, pageSize);
+        var result = new PaginatedList<ApplicationDto>(items, totalCount, pageNumber, pageSize);
 
         return Result<PaginatedList<ApplicationDto>>.SuccessResult(result);
     }
 
     public async Task<Result<PaginatedList<ApplicationDto>>> GetByProfileIdAsync(int profileId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
-        var applications = await _unitOfWork.Applications.FindAsync(
-            a => a.ProfileId == profileId,
-            cancellationToken);
+        var query = _unitOfWork.Applications.GetQueryable()
+            .Where(a => a.ProfileId == profileId);
 
-        var totalCount = applications.Count();
-        var items = applications
+        var totalCount = await query.CountAsync(cancellationToken);
+        
+        var items = await query
             .OrderByDescending(a => a.AppliedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .ToList();
+            .ProjectTo<ApplicationDto>(_mapper.ConfigurationProvider)
+            .ToListAsync(cancellationToken);
 
-        var dtos = new List<ApplicationDto>();
-        foreach (var app in items)
-        {
-            dtos.Add(await MapToDtoAsync(app, cancellationToken));
-        }
-
-        var result = new PaginatedList<ApplicationDto>(dtos, totalCount, pageNumber, pageSize);
+        var result = new PaginatedList<ApplicationDto>(items, totalCount, pageNumber, pageSize);
 
         return Result<PaginatedList<ApplicationDto>>.SuccessResult(result);
     }
@@ -135,9 +131,8 @@ public class ApplicationService : IApplicationService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var responseDto = await MapToDtoAsync(application, cancellationToken);
-
-        return Result<ApplicationDto>.SuccessResult(responseDto, "Application submitted successfully");
+        var result = await GetByIdAsync(application.Id, cancellationToken);
+        return Result<ApplicationDto>.SuccessResult(result.Data!, "Application submitted successfully");
     }
 
     public async Task<Result> UpdateStatusAsync(int id, int statusId, int userId, string? notes = null, CancellationToken cancellationToken = default)
@@ -247,27 +242,5 @@ public class ApplicationService : IApplicationService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.SuccessResult("Application withdrawn successfully");
-    }
-
-    private async Task<ApplicationDto> MapToDtoAsync(Domain.Entities.Application application, CancellationToken cancellationToken)
-    {
-        var jobPost = await _unitOfWork.JobPosts.GetByIdAsync(application.JobPostId, cancellationToken);
-        var profile = await _unitOfWork.Profiles.GetByIdAsync(application.ProfileId, cancellationToken);
-        var status = await _unitOfWork.ApplicationStatuses.GetByIdAsync(application.StatusId, cancellationToken);
-
-        return new ApplicationDto
-        {
-            Id = application.Id,
-            JobPostId = application.JobPostId,
-            JobTitle = jobPost?.Title ?? "Unknown",
-            ProfileId = application.ProfileId,
-            ApplicantName = profile != null ? $"{profile.FirstName} {profile.LastName}".Trim() : "Unknown",
-            StatusName = status?.Name ?? "Unknown",
-            CoverLetter = application.CoverLetter,
-            ResumeUrl = application.ResumeUrl,
-            AppliedAt = application.AppliedAt,
-            ReviewedAt = application.ReviewedAt,
-            ReviewNotes = application.ReviewNotes
-        };
     }
 }

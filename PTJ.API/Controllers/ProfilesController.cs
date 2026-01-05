@@ -11,10 +11,12 @@ namespace PTJ.API.Controllers;
 public class ProfilesController : ControllerBase
 {
     private readonly IProfileService _profileService;
+    private readonly IActivityLogService _activityLogService;
 
-    public ProfilesController(IProfileService profileService)
+    public ProfilesController(IProfileService profileService, IActivityLogService activityLogService)
     {
         _profileService = profileService;
+        _activityLogService = activityLogService;
     }
 
     /// <summary>
@@ -29,6 +31,20 @@ public class ProfilesController : ControllerBase
         {
             return NotFound(result);
         }
+
+        var userId = GetUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId != 0 ? userId : null,
+            "GET",
+            $"/api/profiles/{id}",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Xem chi tiết profile ID: {id}");
 
         return Ok(result);
     }
@@ -48,6 +64,19 @@ public class ProfilesController : ControllerBase
             return NotFound(result);
         }
 
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "GET",
+            "/api/profiles/me",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            "Student xem profile của mình");
+
         return Ok(result);
     }
 
@@ -66,6 +95,19 @@ public class ProfilesController : ControllerBase
             return BadRequest(result);
         }
 
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "POST",
+            "/api/profiles",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            "Student tạo/cập nhật profile của mình");
+
         return Ok(result);
     }
 
@@ -83,6 +125,19 @@ public class ProfilesController : ControllerBase
         {
             return BadRequest(result);
         }
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "DELETE",
+            $"/api/profiles/{id}",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Student xóa profile ID: {id}");
 
         return Ok(result);
     }

@@ -85,7 +85,8 @@ public class AdminService : IAdminService
                 u.IsActive,
                 u.IsEmailVerified,
                 u.CreatedAt,
-                u.LastLoginAt
+                u.LastLoginAt,
+                Roles = u.UserRoles.Select(ur => ur.Role.Name).ToList()
             })
             .ToListAsync();
 

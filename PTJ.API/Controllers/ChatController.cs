@@ -12,10 +12,12 @@ namespace PTJ.API.Controllers;
 public class ChatController : ControllerBase
 {
     private readonly IChatService _chatService;
+    private readonly IActivityLogService _activityLogService;
 
-    public ChatController(IChatService chatService)
+    public ChatController(IChatService chatService, IActivityLogService activityLogService)
     {
         _chatService = chatService;
+        _activityLogService = activityLogService;
     }
 
     /// <summary>
@@ -31,6 +33,19 @@ public class ChatController : ControllerBase
         {
             return BadRequest(result);
         }
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "POST",
+            "/api/chat/conversations",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"User tạo/lấy conversation với User ID: {dto.RecipientId}, Job ID: {dto.JobPostId}");
 
         return Ok(result);
     }
@@ -49,6 +64,19 @@ public class ChatController : ControllerBase
             return BadRequest(result);
         }
 
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "GET",
+            "/api/chat/conversations",
+            $"pageNumber={pageNumber}&pageSize={pageSize}",
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            "User xem danh sách conversations");
+
         return Ok(result);
     }
 
@@ -65,6 +93,19 @@ public class ChatController : ControllerBase
         {
             return BadRequest(result);
         }
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "GET",
+            $"/api/chat/conversations/{conversationId}/messages",
+            $"pageNumber={pageNumber}&pageSize={pageSize}",
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"User xem tin nhắn của conversation ID: {conversationId}");
 
         return Ok(result);
     }
@@ -83,6 +124,19 @@ public class ChatController : ControllerBase
             return BadRequest(result);
         }
 
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "POST",
+            "/api/chat/messages",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"User gửi tin nhắn trong conversation ID: {dto.ConversationId}");
+
         return Ok(result);
     }
 
@@ -100,6 +154,19 @@ public class ChatController : ControllerBase
             return BadRequest(result);
         }
 
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "POST",
+            $"/api/chat/conversations/{conversationId}/read",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"User đánh dấu đã đọc tin nhắn trong conversation ID: {conversationId}");
+
         return Ok(result);
     }
 
@@ -116,6 +183,19 @@ public class ChatController : ControllerBase
         {
             return BadRequest(result);
         }
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "GET",
+            "/api/chat/unread-count",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            "User kiểm tra số tin nhắn chưa đọc");
 
         return Ok(result);
     }

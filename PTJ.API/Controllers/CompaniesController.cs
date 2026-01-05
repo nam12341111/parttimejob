@@ -12,10 +12,12 @@ namespace PTJ.API.Controllers;
 public class CompaniesController : ControllerBase
 {
     private readonly ICompanyService _companyService;
+    private readonly IActivityLogService _activityLogService;
 
-    public CompaniesController(ICompanyService companyService)
+    public CompaniesController(ICompanyService companyService, IActivityLogService activityLogService)
     {
         _companyService = companyService;
+        _activityLogService = activityLogService;
     }
 
     /// <summary>
@@ -30,6 +32,20 @@ public class CompaniesController : ControllerBase
         {
             return NotFound(result);
         }
+
+        var userId = GetUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId != 0 ? userId : null,
+            "GET",
+            $"/api/companies/{id}",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Xem chi tiết công ty ID: {id}");
 
         return Ok(result);
     }
@@ -46,6 +62,20 @@ public class CompaniesController : ControllerBase
         {
             return BadRequest(result);
         }
+
+        var userId = GetUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId != 0 ? userId : null,
+            "GET",
+            "/api/companies",
+            $"pageNumber={pageNumber}&pageSize={pageSize}",
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            "Xem danh sách công ty");
 
         return Ok(result);
     }
@@ -71,6 +101,20 @@ public class CompaniesController : ControllerBase
             return BadRequest(result);
         }
 
+        var userId = GetUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId != 0 ? userId : null,
+            "GET",
+            "/api/companies/search",
+            $"searchTerm={searchTerm}",
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Tìm kiếm công ty với từ khóa: {searchTerm}");
+
         return Ok(result);
     }
 
@@ -88,6 +132,19 @@ public class CompaniesController : ControllerBase
         {
             return NotFound(result);
         }
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "GET",
+            "/api/companies/me",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            "Employer xem thông tin công ty của mình");
 
         return Ok(result);
     }
@@ -107,6 +164,19 @@ public class CompaniesController : ControllerBase
             return BadRequest(result);
         }
 
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "POST",
+            "/api/companies",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"User gửi yêu cầu đăng ký công ty: {dto.Name}");
+
         return Ok(result);
     }
 
@@ -125,6 +195,19 @@ public class CompaniesController : ControllerBase
             return BadRequest(result);
         }
 
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "PUT",
+            $"/api/companies/{id}",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Employer cập nhật thông tin công ty ID: {id}");
+
         return Ok(result);
     }
 
@@ -142,6 +225,19 @@ public class CompaniesController : ControllerBase
         {
             return BadRequest(result);
         }
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "DELETE",
+            $"/api/companies/{id}",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Employer xóa công ty ID: {id}");
 
         return Ok(result);
     }

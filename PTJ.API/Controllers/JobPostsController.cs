@@ -13,10 +13,12 @@ namespace PTJ.API.Controllers;
 public class JobPostsController : ControllerBase
 {
     private readonly IJobPostService _jobPostService;
+    private readonly IActivityLogService _activityLogService;
 
-    public JobPostsController(IJobPostService jobPostService)
+    public JobPostsController(IJobPostService jobPostService, IActivityLogService activityLogService)
     {
         _jobPostService = jobPostService;
+        _activityLogService = activityLogService;
     }
 
     /// <summary>
@@ -32,8 +34,21 @@ public class JobPostsController : ControllerBase
             return NotFound(result);
         }
 
-        // Increment view count
         await _jobPostService.IncrementViewCountAsync(id, cancellationToken);
+
+        var userId = GetUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId != 0 ? userId : null,
+            "GET",
+            $"/api/jobposts/{id}",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Xem chi tiết tin tuyển dụng ID: {id}");
 
         return Ok(result);
     }
@@ -51,6 +66,20 @@ public class JobPostsController : ControllerBase
             return BadRequest(result);
         }
 
+        var userId = GetUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId != 0 ? userId : null,
+            "GET",
+            "/api/jobposts",
+            $"pageNumber={pageNumber}&pageSize={pageSize}",
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            "Xem danh sách tin tuyển dụng");
+
         return Ok(result);
     }
 
@@ -67,6 +96,20 @@ public class JobPostsController : ControllerBase
             return BadRequest(result);
         }
 
+        var userId = GetUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId != 0 ? userId : null,
+            "GET",
+            "/api/jobposts/search",
+            $"searchTerm={parameters.SearchTerm}",
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Tìm kiếm tin tuyển dụng với từ khóa: {parameters.SearchTerm}");
+
         return Ok(result);
     }
 
@@ -82,6 +125,20 @@ public class JobPostsController : ControllerBase
         {
             return BadRequest(result);
         }
+
+        var userId = GetUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId != 0 ? userId : null,
+            "GET",
+            $"/api/jobposts/company/{companyId}",
+            $"pageNumber={pageNumber}&pageSize={pageSize}",
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Xem danh sách tin tuyển dụng của công ty ID: {companyId}");
 
         return Ok(result);
     }
@@ -101,6 +158,20 @@ public class JobPostsController : ControllerBase
             return BadRequest(result);
         }
 
+        // Log activity
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "POST",
+            "/api/jobposts",
+            null,
+            ipAddress,
+            userAgent,
+            201,
+            0,
+            $"Job posted: {dto.Title}");
+
         return CreatedAtAction(nameof(GetById), new { id = result.Data?.Id }, result);
     }
 
@@ -118,6 +189,19 @@ public class JobPostsController : ControllerBase
         {
             return BadRequest(result);
         }
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "PUT",
+            $"/api/jobposts/{id}",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Employer cập nhật tin tuyển dụng ID: {id}");
 
         return Ok(result);
     }
@@ -137,6 +221,19 @@ public class JobPostsController : ControllerBase
             return BadRequest(result);
         }
 
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "DELETE",
+            $"/api/jobposts/{id}",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Employer xóa tin tuyển dụng ID: {id}");
+
         return Ok(result);
     }
 
@@ -154,6 +251,19 @@ public class JobPostsController : ControllerBase
         {
             return BadRequest(result);
         }
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "PATCH",
+            $"/api/jobposts/{id}/status",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Employer thay đổi trạng thái tin tuyển dụng ID: {id} thành {status}");
 
         return Ok(result);
     }

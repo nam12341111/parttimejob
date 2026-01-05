@@ -52,6 +52,10 @@ public class AppDbContext : DbContext
     // Chat
     public DbSet<ChatConversation> ChatConversations => Set<ChatConversation>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    
+    // AI Chat
+    public DbSet<AIChatSession> AIChatSessions => Set<AIChatSession>();
+    public DbSet<AIChatMessage> AIChatMessages => Set<AIChatMessage>();
 
     // Logging
     public DbSet<UserActivityLog> UserActivityLogs => Set<UserActivityLog>();

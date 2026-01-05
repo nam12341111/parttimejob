@@ -12,10 +12,12 @@ namespace PTJ.API.Controllers;
 public class CompanyRequestsController : ControllerBase
 {
     private readonly ICompanyService _companyService;
+    private readonly IActivityLogService _activityLogService;
 
-    public CompanyRequestsController(ICompanyService companyService)
+    public CompanyRequestsController(ICompanyService companyService, IActivityLogService activityLogService)
     {
         _companyService = companyService;
+        _activityLogService = activityLogService;
     }
 
     /// <summary>
@@ -27,12 +29,26 @@ public class CompanyRequestsController : ControllerBase
         [FromQuery] int pageSize = 10,
         CancellationToken cancellationToken = default)
     {
+        var userId = GetUserId();
         var result = await _companyService.GetPendingRequestsAsync(pageNumber, pageSize, cancellationToken);
 
         if (!result.Success)
         {
             return BadRequest(result);
         }
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "GET",
+            "/api/companyrequests/pending",
+            $"pageNumber={pageNumber}&pageSize={pageSize}",
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            "Admin xem danh sách yêu cầu đăng ký công ty đang chờ duyệt");
 
         return Ok(result);
     }
@@ -43,12 +59,26 @@ public class CompanyRequestsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetRequestById(int id, CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
         var result = await _companyService.GetRequestByIdAsync(id, cancellationToken);
 
         if (!result.Success)
         {
             return NotFound(result);
         }
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "GET",
+            $"/api/companyrequests/{id}",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Admin xem chi tiết yêu cầu đăng ký công ty ID: {id}");
 
         return Ok(result);
     }
@@ -69,6 +99,19 @@ public class CompanyRequestsController : ControllerBase
             return BadRequest(result);
         }
 
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            adminUserId,
+            "POST",
+            "/api/companyrequests/approve",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Admin duyệt yêu cầu đăng ký công ty Request ID: {dto.RequestId}");
+
         return Ok(result);
     }
 
@@ -87,6 +130,19 @@ public class CompanyRequestsController : ControllerBase
         {
             return BadRequest(result);
         }
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            adminUserId,
+            "POST",
+            "/api/companyrequests/reject",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Admin từ chối yêu cầu đăng ký công ty Request ID: {dto.RequestId}, lý do: {dto.RejectionReason}");
 
         return Ok(result);
     }

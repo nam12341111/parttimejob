@@ -12,4 +12,9 @@ public interface IAIChatService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The AI's response text.</returns>
     Task<Result<string>> ChatAsync(int userId, string userMessage, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Restarts the conversation session for the user (archiving current context).
+    /// </summary>
+    Task<Result> RestartSessionAsync(int userId, CancellationToken cancellationToken = default);
 }

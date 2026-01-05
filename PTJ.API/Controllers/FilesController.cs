@@ -12,10 +12,12 @@ namespace PTJ.API.Controllers;
 public class FilesController : ControllerBase
 {
     private readonly IFileStorageService _fileStorageService;
+    private readonly IActivityLogService _activityLogService;
 
-    public FilesController(IFileStorageService fileStorageService)
+    public FilesController(IFileStorageService fileStorageService, IActivityLogService activityLogService)
     {
         _fileStorageService = fileStorageService;
+        _activityLogService = activityLogService;
     }
 
     /// <summary>
@@ -32,6 +34,19 @@ public class FilesController : ControllerBase
             return BadRequest(result);
         }
 
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "POST",
+            "/api/files/upload",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"User upload file: {request.File.FileName} vào folder: {request.Folder ?? "general"}");
+
         return Ok(result);
     }
 
@@ -41,12 +56,26 @@ public class FilesController : ControllerBase
     [HttpDelete]
     public async Task<IActionResult> Delete([FromQuery] string fileUrl, CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
         var result = await _fileStorageService.DeleteFileAsync(fileUrl, cancellationToken);
 
         if (!result.Success)
         {
             return BadRequest(result);
         }
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "DELETE",
+            "/api/files",
+            $"fileUrl={fileUrl}",
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"User xóa file: {fileUrl}");
 
         return Ok(result);
     }
@@ -65,7 +94,20 @@ public class FilesController : ControllerBase
             return NotFound(result);
         }
 
-        // Determine content type based on file extension
+        var userId = GetUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId != 0 ? userId : null,
+            "GET",
+            "/api/files/download",
+            $"fileUrl={fileUrl}",
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Download file: {fileUrl}");
+
         var extension = Path.GetExtension(fileUrl).ToLower();
         var contentType = extension switch
         {

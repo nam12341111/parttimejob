@@ -11,10 +11,12 @@ namespace PTJ.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IActivityLogService _activityLogService;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, IActivityLogService activityLogService)
     {
         _authService = authService;
+        _activityLogService = activityLogService;
     }
 
     /// <summary>
@@ -29,6 +31,20 @@ public class AuthController : ControllerBase
         {
             return BadRequest(result);
         }
+
+        // Log activity
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            result.Data?.UserId, 
+            "POST", 
+            "/api/auth/register", 
+            null, 
+            ipAddress, 
+            userAgent, 
+            200, 
+            0, 
+            $"User registered as {result.Data?.Role}");
 
         return Ok(result);
     }
@@ -47,6 +63,20 @@ public class AuthController : ControllerBase
             return BadRequest(result);
         }
 
+        // Log activity
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        
+        await _activityLogService.LogActivityAsync(
+            result.Data?.UserId, 
+            "POST", 
+            "/api/auth/login", 
+            null, 
+            ipAddress, 
+            userAgent, 
+            200, 
+            0, 
+            "User logged in");
+
         return Ok(result);
     }
 
@@ -63,6 +93,18 @@ public class AuthController : ControllerBase
         {
             return BadRequest(result);
         }
+
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            result.Data?.UserId,
+            "POST",
+            "/api/auth/refresh",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            "User làm mới token");
 
         return Ok(result);
     }
@@ -82,6 +124,18 @@ public class AuthController : ControllerBase
         {
             return BadRequest(result);
         }
+
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "POST",
+            "/api/auth/revoke",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            "User đăng xuất (revoke token)");
 
         return Ok(result);
     }

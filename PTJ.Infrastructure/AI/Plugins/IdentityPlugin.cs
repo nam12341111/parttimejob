@@ -7,7 +7,7 @@ namespace PTJ.Infrastructure.AI.Plugins;
 public class IdentityPlugin
 {
     private readonly ICompanyService _companyService;
-    private readonly IJobPostService _jobService; // Optional: If we want to check job ownership later
+    private readonly IJobPostService _jobService;
 
     public IdentityPlugin(ICompanyService companyService, IJobPostService jobService)
     {

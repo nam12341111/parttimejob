@@ -41,15 +41,17 @@ public class JobPostService : IJobPostService
 
     public async Task<Result<PaginatedList<JobPostDto>>> GetAllAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
-        var allJobPosts = await _unitOfWork.JobPosts.GetAllAsync(cancellationToken);
-        var activeJobPosts = allJobPosts.Where(jp => jp.Status == JobPostStatus.Active).ToList();
 
-        var totalCount = activeJobPosts.Count;
-        var items = activeJobPosts
+        var query = _unitOfWork.JobPosts.GetQueryable()
+            .Where(jp => jp.Status == JobPostStatus.Active);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
             .OrderByDescending(jp => jp.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .ToList();
+            .ToListAsync(cancellationToken);
 
         var dtos = new List<JobPostDto>();
         foreach (var jobPost in items)
@@ -296,6 +298,7 @@ public class JobPostService : IJobPostService
         return new JobPostDto
         {
             Id = jobPost.Id,
+            EmployerId = jobPost.CreatedByUserId,
             CompanyId = jobPost.CompanyId,
             CompanyName = company?.Name ?? "Unknown",
             CompanyLogoUrl = company?.LogoUrl,

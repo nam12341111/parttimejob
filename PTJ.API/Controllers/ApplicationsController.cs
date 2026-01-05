@@ -13,11 +13,13 @@ public class ApplicationsController : ControllerBase
 {
     private readonly IApplicationService _applicationService;
     private readonly IProfileService _profileService;
+    private readonly IActivityLogService _activityLogService;
 
-    public ApplicationsController(IApplicationService applicationService, IProfileService profileService)
+    public ApplicationsController(IApplicationService applicationService, IProfileService profileService, IActivityLogService activityLogService)
     {
         _applicationService = applicationService;
         _profileService = profileService;
+        _activityLogService = activityLogService;
     }
 
     /// <summary>
@@ -26,12 +28,26 @@ public class ApplicationsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
         var result = await _applicationService.GetByIdAsync(id, cancellationToken);
 
         if (!result.Success)
         {
             return NotFound(result);
         }
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId != 0 ? userId : null,
+            "GET",
+            $"/api/applications/{id}",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Xem chi tiết đơn ứng tuyển ID: {id}");
 
         return Ok(result);
     }
@@ -43,12 +59,26 @@ public class ApplicationsController : ControllerBase
     [HttpGet("job/{jobPostId}")]
     public async Task<IActionResult> GetByJobPostId(int jobPostId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
     {
+        var userId = GetUserId();
         var result = await _applicationService.GetByJobPostIdAsync(jobPostId, pageNumber, pageSize, cancellationToken);
 
         if (!result.Success)
         {
             return BadRequest(result);
         }
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "GET",
+            $"/api/applications/job/{jobPostId}",
+            $"pageNumber={pageNumber}&pageSize={pageSize}",
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Employer xem danh sách đơn ứng tuyển của Job ID: {jobPostId}");
 
         return Ok(result);
     }
@@ -62,7 +92,6 @@ public class ApplicationsController : ControllerBase
     {
         var userId = GetUserId();
 
-        // Get user's profile first
         var profileResult = await _profileService.GetByUserIdAsync(userId, cancellationToken);
         if (!profileResult.Success || profileResult.Data == null)
         {
@@ -75,6 +104,19 @@ public class ApplicationsController : ControllerBase
         {
             return BadRequest(result);
         }
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "GET",
+            "/api/applications/me",
+            $"pageNumber={pageNumber}&pageSize={pageSize}",
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            "Student xem danh sách đơn ứng tuyển của mình");
 
         return Ok(result);
     }
@@ -94,6 +136,20 @@ public class ApplicationsController : ControllerBase
             return BadRequest(result);
         }
 
+        // Log activity
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "POST",
+            "/api/applications",
+            null,
+            ipAddress,
+            userAgent,
+            201,
+            0,
+            $"Application submitted for Job ID: {dto.JobPostId}");
+
         return CreatedAtAction(nameof(GetById), new { id = result.Data?.Id }, result);
     }
 
@@ -112,6 +168,19 @@ public class ApplicationsController : ControllerBase
             return BadRequest(result);
         }
 
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "PATCH",
+            $"/api/applications/{id}/status",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Employer cập nhật trạng thái đơn ứng tuyển ID: {id} thành Status ID: {dto.StatusId}");
+
         return Ok(result);
     }
 
@@ -129,6 +198,19 @@ public class ApplicationsController : ControllerBase
         {
             return BadRequest(result);
         }
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        await _activityLogService.LogActivityAsync(
+            userId,
+            "POST",
+            $"/api/applications/{id}/withdraw",
+            null,
+            ipAddress,
+            userAgent,
+            200,
+            0,
+            $"Student rút đơn ứng tuyển ID: {id}");
 
         return Ok(result);
     }

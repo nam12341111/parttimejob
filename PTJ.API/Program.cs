@@ -189,9 +189,9 @@ builder.Services.AddScoped<IAIChatService, AIChatService>();
 
 builder.Services.AddKernel()
     .AddOpenAIChatCompletion(
-        modelId: "llama3", // Default model, can be changed via configuration
-        apiKey: "ignore",
-        endpoint: new Uri("http://localhost:11434/v1/")
+        modelId: builder.Configuration["AI:OpenAI:ModelId"] ?? "qwen/qwen-2.5-vl-7b-instruct:free",
+        apiKey: builder.Configuration["AI:OpenAI:ApiKey"] ?? throw new InvalidOperationException("API Key not found in configuration"),
+        endpoint: new Uri(builder.Configuration["AI:OpenAI:Endpoint"] ?? "http://localhost:8000/v1")
     );
 
 var app = builder.Build();

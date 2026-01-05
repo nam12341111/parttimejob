@@ -9,8 +9,16 @@ services:
       - "1433:1433"
     volumes:
       - sql_data:/var/opt/mssql
+      - ./hello_2.bak:/var/opt/mssql/backup/hello_2.bak
+      - ./mssql/restore-db.sql:/var/opt/mssql/scripts/restore-db.sql
+      - ./mssql/entrypoint.sh:/entrypoint.sh
+    entrypoint: /bin/bash /entrypoint.sh
     healthcheck:
-      test: [ "CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P PartTimeJobs@2024 -C -Q 'SELECT 1' || exit 1" ]
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P PartTimeJobs@2024 -C -Q 'SELECT 1' || exit 1",
+        ]
       interval: 10s
       retries: 10
       start_period: 10s
@@ -25,8 +33,20 @@ services:
     ports:
       - "5000:8080"
     environment:
+      # ENV
       - ASPNETCORE_ENVIRONMENT=Development
+
+      # DB
       - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=PartTimeJobDb;User Id=sa;Password=PartTimeJobs@2024;TrustServerCertificate=True;
+
+      # JWT
+      - JWT__Key=${JWT_KEY}
+      - JWT__Issuer=PTJ.API
+      - JWT__Audience=PTJ.Client
+
+      # API KEY
+      - ApiKey=${API_KEY}
+
     depends_on:
       sqlserver:
         condition: service_healthy

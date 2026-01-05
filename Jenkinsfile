@@ -1,6 +1,10 @@
 pipeline {
     agent any
-    
+
+    environment {
+        JWT_KEY = credentials('E3k!xRz#8tN2q@pF7vL1sWmG9yZ$DhU5aBJrT0oC^KfX6iHnP%')
+        API_KEY = credentials('sk-or-v1-8804a931ba1932d759c050bc36842472a20b50d520fe9bd68253b92c2906ea48nex-agi/deepseek-v3.1-nex-n1:free')
+    }
     stages {
         stage('Checkout') {
             steps {

@@ -1,14 +1,31 @@
 pipeline {
     agent any
 
-    environment {
-        JWT__Key = credentials('JWT__Key')
-        AI__OpenAI__ApiKey = credentials('AI__OpenAI__ApiKey')
-    }
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
+            }
+        }
+
+        stage('Load Credentials') {
+            steps {
+                script {
+                    try {
+                        withCredentials([
+                            string(credentialsId: 'JWT__Key', variable: 'JWT_KEY'),
+                            string(credentialsId: 'AI__OpenAI__ApiKey', variable: 'AI_API_KEY')
+                        ]) {
+                            env.JWT__Key = env.JWT_KEY
+                            env.AI__OpenAI__ApiKey = env.AI_API_KEY
+                            echo "✓ Credentials loaded successfully"
+                        }
+                    } catch (Exception e) {
+                        echo "⚠ Warning: Could not load credentials - ${e.message}"
+                        env.JWT__Key = "dummy"
+                        env.AI__OpenAI__ApiKey = "dummy"
+                    }
+                }
             }
         }
 

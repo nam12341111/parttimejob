@@ -1,6 +1,10 @@
 pipeline {
     agent any
-    
+
+    environment {
+        JWT_KEY = credentials('JWT_KEY')
+        API_KEY = credentials('API_KEY')
+    }
     stages {
         stage('Checkout') {
             steps {

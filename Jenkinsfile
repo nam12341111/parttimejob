@@ -44,7 +44,11 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
-                    bat 'docker compose up -d api'
+                    bat '''
+                        echo JWT__Key=%JWT__Key%> .env
+                        echo AI__OpenAI__ApiKey=%AI__OpenAI__ApiKey%>> .env
+                        docker compose up -d api
+                    '''
                 }
             }
         }

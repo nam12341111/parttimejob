@@ -11,6 +11,7 @@ dangnhap.txt
 .claude
 test_api.py
 PTJ.API/appsettings.json
+PTJ.API/appsettings.Development.json
 
 # Build results
 [Dd]ebug/

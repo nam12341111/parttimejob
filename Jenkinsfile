@@ -13,7 +13,7 @@ pipeline {
                 script {
                     try {
                         withCredentials([
-                            string(credentialsId: 'JWT__KEY', variable: 'JWT_KEY'),
+                            string(credentialsId: 'JWT_KEY', variable: 'JWT_KEY'),
                             string(credentialsId: 'AI__OpenAI__ApiKey', variable: 'AI_API_KEY')
                         ]) {
                             env.JWT__Key = env.JWT_KEY

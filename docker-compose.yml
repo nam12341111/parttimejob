@@ -1,13 +1,18 @@
 services:
   sqlserver:
-    build:
-      context: .
-      dockerfile: mssql/Dockerfile
+    image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: ptj_sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=PartTimeJobs@2024
     ports:
       - "1433:1433"
     volumes:
       - sql_data:/var/opt/mssql
+      - ./hello_2.bak:/var/opt/mssql/backup/hello_2.bak:ro
+      - ./mssql/restore-db.sql:/var/opt/mssql/scripts/restore-db.sql:ro
+      - ./mssql/entrypoint.sh:/var/opt/mssql/entrypoint.sh:ro
+    command: /bin/bash -c "/var/opt/mssql/entrypoint.sh & /opt/mssql/bin/sqlservr"
     healthcheck:
       test:
         [

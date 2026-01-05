@@ -40,12 +40,12 @@ services:
       - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=PartTimeJobDb;User Id=sa;Password=PartTimeJobs@2024;TrustServerCertificate=True;
 
       # 🔐 JWT (lấy từ Jenkins)
-      - JWT__Key=${JWT_KEY}
+      - JWT__Key=${JWT__Key}
       - JWT__Issuer=PTJ.API
       - JWT__Audience=PTJ.Client
 
       # 🔐 API KEY (lấy từ Jenkins)
-      - ApiKey=${API_KEY}
+      - AI__OpenAI__ApiKey=${AI__OpenAI__ApiKey}
 
     depends_on:
       sqlserver:

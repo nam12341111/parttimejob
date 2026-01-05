@@ -39,14 +39,6 @@ services:
       # DB
       - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=PartTimeJobDb;User Id=sa;Password=PartTimeJobs@2024;TrustServerCertificate=True;
 
-      # JWT
-      - JWT__Key=${JWT_KEY}
-      - JWT__Issuer=PTJ.API
-      - JWT__Audience=PTJ.Client
-
-      # API KEY
-      - ApiKey=${API_KEY}
-
     depends_on:
       sqlserver:
         condition: service_healthy

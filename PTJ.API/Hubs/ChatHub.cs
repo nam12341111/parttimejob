@@ -22,6 +22,11 @@ public class ChatHub : Hub
         if (userId > 0)
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, $"user-{userId}");
+            Console.WriteLine($"[SignalR] User connected: {userId} (ConnectionId: {Context.ConnectionId})");
+        }
+        else 
+        {
+            Console.WriteLine($"[SignalR] Anonymous connection (ConnectionId: {Context.ConnectionId})");
         }
         await base.OnConnectedAsync();
     }

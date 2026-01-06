@@ -117,6 +117,7 @@ public class SearchService : ISearchService
         return new JobPostDto
         {
             Id = jobPost.Id,
+            EmployerId = jobPost.CreatedByUserId,
             CompanyId = jobPost.CompanyId,
             CompanyName = company?.Name ?? "Unknown",
             CompanyLogoUrl = company?.LogoUrl,

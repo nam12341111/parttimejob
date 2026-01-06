@@ -45,7 +45,10 @@ public class MappingProfile : AutoMapper.Profile
             .ForMember(dest => dest.CompanyName, opt => opt.MapFrom(src => src.Company != null ? src.Company.Name : string.Empty))
             .ForMember(dest => dest.CompanyLogoUrl, opt => opt.MapFrom(src => src.Company != null ? src.Company.LogoUrl : string.Empty))
             .ForMember(dest => dest.Shifts, opt => opt.MapFrom(src => src.Shifts))
-            .ForMember(dest => dest.RequiredSkills, opt => opt.MapFrom(src => src.RequiredSkills.Select(s => s.SkillName).ToList()));
+            .ForMember(dest => dest.RequiredSkills, opt => opt.MapFrom(src => src.RequiredSkills.Select(s => s.SkillName).ToList()))
+            .ForMember(dest => dest.EmployerId, opt => opt.MapFrom(src => src.CreatedByUserId))
+            .ForMember(dest => dest.EmployerName, opt => opt.MapFrom(src => src.Creator != null ? src.Creator.FullName : string.Empty))
+            .ForMember(dest => dest.EmployerAvatarUrl, opt => opt.MapFrom(src => src.Creator != null ? src.Creator.AvatarUrl : null));
 
         CreateMap<CreateJobPostDto, JobPost>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
@@ -90,6 +93,10 @@ public class MappingProfile : AutoMapper.Profile
         // Application mappings
         CreateMap<PTJ.Domain.Entities.Application, ApplicationDto>()
             .ForMember(dest => dest.JobTitle, opt => opt.MapFrom(src => src.JobPost != null ? src.JobPost.Title : string.Empty))
+            .ForMember(dest => dest.CompanyName, opt => opt.MapFrom(src => src.JobPost != null && src.JobPost.Company != null ? src.JobPost.Company.Name : string.Empty))
+            .ForMember(dest => dest.CompanyLogoUrl, opt => opt.MapFrom(src => src.JobPost != null && src.JobPost.Company != null ? src.JobPost.Company.LogoUrl : null))
+            .ForMember(dest => dest.EmployerId, opt => opt.MapFrom(src => src.JobPost != null ? src.JobPost.CreatedByUserId : (int?)null))
+            .ForMember(dest => dest.EmployerName, opt => opt.MapFrom(src => src.JobPost != null && src.JobPost.Creator != null ? src.JobPost.Creator.FullName : string.Empty))
             .ForMember(dest => dest.ApplicantName, opt => opt.MapFrom(src =>
                 src.Profile != null ? $"{src.Profile.FirstName} {src.Profile.LastName}".Trim() : string.Empty))
             .ForMember(dest => dest.StatusName, opt => opt.MapFrom(src => GetStatusName(src.StatusId)));

@@ -26,6 +26,8 @@ public class JobPost : BaseAuditableEntity
     public bool IsUrgent { get; set; }
 
     // Navigation properties
+    [System.ComponentModel.DataAnnotations.Schema.ForeignKey("CreatedByUserId")]
+    public virtual User? Creator { get; set; }
     public virtual Company Company { get; set; } = null!;
     public virtual ICollection<JobShift> Shifts { get; set; } = new List<JobShift>();
     public virtual ICollection<JobPostSkill> RequiredSkills { get; set; } = new List<JobPostSkill>();

@@ -156,19 +156,8 @@ builder.Services.AddCors(options =>
         if (builder.Environment.IsDevelopment())
         {
             // Development: Allow configured origins or localhost if empty
-            if (allowedOrigins.Length > 0)
-            {
-                policy.WithOrigins(allowedOrigins);
-            }
-            else
-            {
-                // Fallback to localhost patterns for development
-                policy.SetIsOriginAllowed(origin =>
-                    origin.StartsWith("http://localhost:", StringComparison.OrdinalIgnoreCase) ||
-                    origin.StartsWith("https://localhost:", StringComparison.OrdinalIgnoreCase) ||
-                    origin.StartsWith("http://127.0.0.1:", StringComparison.OrdinalIgnoreCase) ||
-                    origin.StartsWith("https://127.0.0.1:", StringComparison.OrdinalIgnoreCase));
-            }
+                // Allow any origin in Development
+                policy.SetIsOriginAllowed(origin => true);
         }
         else
         {

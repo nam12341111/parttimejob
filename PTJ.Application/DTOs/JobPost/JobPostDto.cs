@@ -6,6 +6,8 @@ public class JobPostDto
 {
     public int Id { get; set; }
     public int? EmployerId { get; set; }
+    public string EmployerName { get; set; } = string.Empty;
+    public string? EmployerAvatarUrl { get; set; }
     public int CompanyId { get; set; }
     public string CompanyName { get; set; } = string.Empty;
     public string? CompanyLogoUrl { get; set; }
